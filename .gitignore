@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+*.apk
+
+# Contest paperwork is submitted by email and carries the organizer's notice.
+docs/*.docx
+scripts/fill_form.py

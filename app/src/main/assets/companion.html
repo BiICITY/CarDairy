@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>우리 차 일기</title>
+<style>
+  :root { --paper:#fff8ec; --ink:#2e2a25; --accent:#d9573f; --soft:#f3e7d2; --muted:#7a7268; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.5 system-ui,-apple-system,"Malgun Gothic",sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:24px 16px 96px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:18px; margin:28px 0 10px; }
+  p { margin:0 0 10px; }
+  .muted { color:var(--muted); font-size:15px; }
+  button, .file { display:block; width:100%; min-height:52px; border:0; border-radius:14px; background:var(--accent); color:#fff; font:inherit; font-weight:600; text-align:center; padding:13px; cursor:pointer; }
+  button.quiet, .file.quiet { background:var(--soft); color:var(--ink); }
+  button:disabled { opacity:.45; cursor:default; }
+  select { width:100%; min-height:48px; font:inherit; padding:10px; border-radius:12px; border:1px solid #cfc3ad; background:#fff; color:var(--ink); }
+  label.check { display:flex; gap:10px; align-items:center; margin:14px 0; }
+  label.check input { width:22px; height:22px; flex:none; }
+  input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0; }
+  .tile { position:relative; aspect-ratio:1; border-radius:12px; overflow:hidden; background:var(--soft); }
+  .tile img { width:100%; height:100%; object-fit:cover; display:block; }
+  .tile button { position:absolute; inset:auto 6px 6px auto; width:auto; min-height:32px; padding:4px 10px; font-size:14px; border-radius:10px; background:rgba(46,42,37,.8); }
+  .hidden { display:none; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:var(--paper); padding:12px 16px; border-top:1px solid var(--soft); }
+  .bar > div { max-width:528px; margin:0 auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>나들이 사진 고르기</h1>
+  <p class="muted">사진은 폰에 그대로 있고, 승인한 사진만 차로 옮겨집니다.</p>
+
+  <section id="stepOuting">
+    <h2>어느 나들이인가요?</h2>
+    <select id="outing"></select>
+    <p id="noOuting" class="muted hidden">아직 기록된 나들이가 없어요. 차에서 내렸다가 다시 타면 생겨요.</p>
+    <label class="check"><input type="checkbox" id="driverPhone">이 폰은 운전자 폰이에요</label>
+    <label class="file" id="pickLabel" for="files">사진 불러오기</label>
+    <input type="file" id="files" accept="image/*" multiple>
+  </section>
+
+  <section id="stepReview" class="hidden">
+    <h2 id="summary"></h2>
+    <p id="safety" class="muted hidden"></p>
+    <p id="unreadable" class="muted hidden"></p>
+    <div class="grid" id="chosen"></div>
+    <div id="moreWrap" class="hidden">
+      <h2>더 추가하기</h2>
+      <div class="grid" id="others"></div>
+    </div>
+    <button class="quiet" id="toggleMore">사진 더 추가</button>
+  </section>
+
+  <section id="stepDone" class="hidden">
+    <h2>차로 옮겼어요</h2>
+    <p>다음에 탈 때 차가 사진을 보여 줄 거예요. 이 창은 닫아도 됩니다.</p>
+  </section>
+</main>
+<div class="bar hidden" id="bar"><div><button id="approve">이대로 승인</button></div></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const token = params.get('t');
+const $ = id => document.getElementById(id);
+const api = (path, opts) => fetch(path + (path.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(token), opts);
+
+let photos = [];
+let chosen = new Set();
+
+const fmt = ms => new Date(ms).toLocaleString('ko-KR', { month:'long', day:'numeric', hour:'numeric', minute:'2-digit' });
+
+async function loadOutings() {
+  const rows = await (await api('/api/outings')).json();
+  $('noOuting').classList.toggle('hidden', rows.length > 0);
+  $('outing').classList.toggle('hidden', rows.length === 0);
+  $('pickLabel').classList.toggle('hidden', rows.length === 0);
+  $('outing').innerHTML = '';
+  rows.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r.id;
+    o.textContent = fmt(r.start) + ' ~ ' + new Date(r.end).toLocaleTimeString('ko-KR', { hour:'numeric', minute:'2-digit' }) + (r.label ? ' · ' + r.label : '');
+    $('outing').append(o);
+  });
+}
+
+/** Reads the capture time from a JPEG's EXIF block without any library. */
+async function exifTime(file) {
+  const v = new DataView(await file.slice(0, 131072).arrayBuffer());
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return null;
+  let p = 2;
+  while (p + 4 < v.byteLength) {
+    const marker = v.getUint16(p), size = v.getUint16(p + 2);
+    if (marker === 0xFFE1 && v.getUint32(p + 4) === 0x45786966) return parseTiff(v, p + 10);
+    if ((marker & 0xFF00) !== 0xFF00) return null;
+    p += 2 + size;
+  }
+  return null;
+}
+function parseTiff(v, base) {
+  const le = v.getUint16(base) === 0x4949;
+  const u16 = o => v.getUint16(base + o, le), u32 = o => v.getUint32(base + o, le);
+  const find = (ifd, tag) => {
+    const n = u16(ifd);
+    for (let i = 0; i < n; i++) { const e = ifd + 2 + i * 12; if (u16(e) === tag) return e; }
+    return null;
+  };
+  const ptr = find(u32(4), 0x8769);
+  if (ptr === null) return null;
+  const entry = find(u32(ptr + 8), 0x9003);
+  if (entry === null) return null;
+  const at = u32(entry + 8);
+  let s = '';
+  for (let i = 0; i < 19; i++) s += String.fromCharCode(v.getUint8(base + at + i));
+  const m = s.match(/(\d+):(\d+):(\d+) (\d+):(\d+):(\d+)/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : null;
+}
+
+async function onFiles(files) {
+  $('pickLabel').textContent = '사진을 살펴보는 중…';
+  photos = await Promise.all([...files].map(async (file, i) => {
+    let takenAt = null;
+    try { takenAt = await exifTime(file); } catch (_) {}
+    return { id: String(i), file, takenAt: takenAt ?? file.lastModified, url: URL.createObjectURL(file) };
+  }));
+  const meta = photos.map(p => ({ id: p.id, takenAt: p.takenAt, driverPhone: $('driverPhone').checked }));
+  const res = await (await api('/api/select?outing=' + $('outing').value, { method:'POST', body: JSON.stringify(meta) })).json();
+  $('pickLabel').textContent = '사진 불러오기';
+  if (res.error) { alert('나들이 정보를 찾지 못했어요.'); return; }
+  chosen = new Set(res.chosen);
+  $('safety').classList.toggle('hidden', !res.excludedForSafety);
+  $('safety').textContent = `운전 중 시간대의 운전자 폰 사진 ${res.excludedForSafety}장은 추천에서 뺐어요.`;
+  $('summary').dataset.total = photos.length;
+  $('stepOuting').classList.add('hidden');
+  $('stepReview').classList.remove('hidden');
+  $('bar').classList.remove('hidden');
+  render();
+}
+
+function tile(p, label, action) {
+  const t = document.createElement('div'); t.className = 'tile';
+  const img = document.createElement('img'); img.src = p.url; img.alt = '';
+  img.onerror = () => markUnreadable(p);
+  const b = document.createElement('button'); b.textContent = label; b.onclick = action;
+  t.append(img, b);
+  return t;
+}
+/** A file this browser cannot open, such as HEIC on some browsers, must not block the others. */
+function markUnreadable(p) {
+  if (p.unreadable) return;
+  p.unreadable = true;
+  chosen.delete(p.id);
+  render();
+}
+function render() {
+  const unreadable = photos.filter(p => p.unreadable).length;
+  $('summary').textContent = `사진 ${photos.length}장 중 ${chosen.size}장을 골랐어요`;
+  $('unreadable').classList.toggle('hidden', !unreadable);
+  $('unreadable').textContent = `이 브라우저에서 열 수 없는 사진 ${unreadable}장은 뺐어요. JPEG로 바꾸면 추가할 수 있어요.`;
+  $('chosen').replaceChildren(...photos.filter(p => chosen.has(p.id)).map(p => tile(p, '빼기', () => { chosen.delete(p.id); render(); })));
+  $('others').replaceChildren(...photos.filter(p => !chosen.has(p.id) && !p.unreadable).map(p => tile(p, '추가', () => { chosen.add(p.id); render(); })));
+  $('approve').disabled = chosen.size === 0;
+  $('approve').textContent = chosen.size ? `${chosen.size}장 승인` : '사진을 골라 주세요';
+}
+
+/** Shrinks before sending and drops metadata, since canvas output carries no EXIF or GPS. */
+function toJpeg(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('encode')), 'image/jpeg', 0.85);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function approve() {
+  const btn = $('approve'), outing = $('outing').value;
+  const list = photos.filter(p => chosen.has(p.id));
+  let sent = 0;
+  btn.disabled = true;
+  try {
+    await api('/api/begin?outing=' + outing, { method:'POST' });
+    for (let i = 0; i < list.length; i++) {
+      btn.textContent = `옮기는 중 ${i + 1}/${list.length}`;
+      let body;
+      try {
+        body = await toJpeg(list[i].file);
+      } catch (_) {
+        list[i].unreadable = true;
+        chosen.delete(list[i].id);
+        continue;
+      }
+      const r = await api('/api/photo?outing=' + outing, { method:'POST', body });
+      if (!r.ok) throw new Error(await r.text());
+      sent++;
+    }
+    if (!sent) {
+      render();
+      btn.disabled = chosen.size === 0;
+      return;
+    }
+    await api('/api/done?outing=' + outing, { method:'POST' });
+    $('stepReview').classList.add('hidden');
+    $('bar').classList.add('hidden');
+    $('stepDone').classList.remove('hidden');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '다시 시도';
+    alert('옮기지 못했어요. 차 화면이 켜져 있는지 확인해 주세요.');
+  }
+}
+
+$('files').onchange = e => e.target.files.length && onFiles(e.target.files);
+$('approve').onclick = approve;
+$('toggleMore').onclick = () => $('moreWrap').classList.toggle('hidden');
+loadOutings();
+</script>
+</body>
+</html>
