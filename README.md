@@ -2,6 +2,15 @@
 
 가족이 이름 지어준 차가 실제 차량 신호로 쓴 일기를 들려주는 Pleos Connect 앱입니다.
 
+
+## 심사용 APK와 실행 방법
+
+제출용 APK: [`apk/BiICITY_우리차일기_release.apk`](apk/BiICITY_우리차일기_release.apk)
+
+Pleos Connect Emulator v2.1.0(Android 14)에 APK를 설치한 뒤 앱 목록에서 **우리 차 일기**를 엽니다. 첫 화면에서 차 이름, 아이 이름과 좌석을 설정하고 보호자 동의를 선택합니다. 화면의 **데모** 메뉴는 차량 신호를 직접 보내기 어려울 때 탑승·주행·충전 장면을 재현하는 용도입니다. 실제 차량 신호는 Pleos Vehicle SDK를 통해 읽습니다.
+
+검증 환경: Pleos Connect Emulator v2.1.0, Android SDK 35, Java 21. `:app:testDebugUnitTest`와 `:app:assembleDebug`가 통과했고, release APK는 빌드와 서명 검증을 마쳤습니다. 신규 설치·전체 시나리오 동작은 에뮬레이터에서 추가 확인이 필요합니다. 에뮬레이터의 Virtual Console 신호와 실차 동작은 다를 수 있습니다.
+
 ## 구조
 
 | 파일 | 역할 |

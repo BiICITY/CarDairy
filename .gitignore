@@ -9,3 +9,6 @@ local.properties
 # Contest paperwork is submitted by email and carries the organizer's notice.
 docs/*.docx
 scripts/fill_form.py
+
+!apk/
+!apk/BiICITY_우리차일기_release.apk
