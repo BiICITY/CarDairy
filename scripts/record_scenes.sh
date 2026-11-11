@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Records the car-screen scenes of the demo video on the headless emulator, driving real vehicle
 # signals through the Virtual Console. Usage: record_scenes.sh <outdir> part1|part2
-ADB="${ADB:-/c/Users/sob50/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ADB="${ADB:-adb}"
 OUT="$1"; PART="$2"
 B=http://127.0.0.1:8088
 PKG=app.woorichadiary
@@ -39,7 +40,7 @@ rm -f "$OUT/stop"
 pause 3
 
 if [ "$PART" = part1 ]; then
-  timeout 200 "$ADB" install -r -g "$(cygpath -w /c/Users/sob50/WooriChaDiary/app/build/outputs/apk/debug/app-debug.apk)" | tail -1
+  timeout 200 "$ADB" install -r -g "$(cygpath -w $ROOT/app/build/outputs/apk/debug/app-debug.apk)" | tail -1
   sh_ pm clear --user current $PKG >/dev/null
   pause 2
   sh_ am start --user current -S -n $PKG/.ui.MainActivity >/dev/null

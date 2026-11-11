@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # Prepares the emulator for a photo test: seeds an outing that ended just now and opens the QR
 # screen. Prints the phone page address, reachable from the PC through adb forward.
-ADB="${ADB:-/c/Users/sob50/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
-OUT="${1:-/c/Users/sob50/pleos-verify/photo}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ADB="${ADB:-adb}"
+OUT="${1:-$ROOT/out/photo}"
 PKG=app.woorichadiary
 export MSYS_NO_PATHCONV=1
 mkdir -p "$OUT"
 pause() { ping -n $(( $1 + 1 )) 127.0.0.1 >/dev/null; }
 
 for i in $(seq 1 40); do s=$(timeout 10 "$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r'); [ "$s" = "1" ] && break; pause 5; done
-timeout 200 "$ADB" install -r -g "$(cygpath -w /c/Users/sob50/WooriChaDiary/app/build/outputs/apk/debug/app-debug.apk)" | tail -1
+timeout 200 "$ADB" install -r -g "$(cygpath -w $ROOT/app/build/outputs/apk/debug/app-debug.apk)" | tail -1
 
 NOW=$(( $(date +%s) * 1000 ))
 H=3600000
@@ -28,7 +29,7 @@ timeout 15 "$ADB" forward tcp:8765 tcp:8765 >/dev/null
 find_tap() {
   timeout 25 "$ADB" shell uiautomator dump /data/local/tmp/ui.xml >/dev/null 2>&1
   timeout 20 "$ADB" exec-out cat /data/local/tmp/ui.xml > "$OUT/ui.xml"
-  python -I "$(cygpath -w /c/Users/sob50/pleos-verify/find.py)" "$(cygpath -w "$OUT/ui.xml")" "$1"
+  python -I "$(cygpath -w $ROOT/scripts/find_text.py)" "$(cygpath -w "$OUT/ui.xml")" "$1"
 }
 p=""; for i in 1 2 3 4 5 6; do p=$(find_tap "사진 고르기"); [ -n "$p" ] && break; pause 10; done; echo "photo button: $p"
 [ -n "$p" ] && timeout 15 "$ADB" shell input tap $p

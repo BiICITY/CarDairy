@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Waits until the emulator is usable, brings the app forward and opens the QR screen.
 # Prints the phone page address reachable from this PC.
-ADB="${ADB:-/c/Users/sob50/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
-OUT="${1:-/c/Users/sob50/pleos-verify/photo}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ADB="${ADB:-adb}"
+OUT="${1:-$ROOT/out/photo}"
 PKG=app.woorichadiary
 export MSYS_NO_PATHCONV=1
 mkdir -p "$OUT"

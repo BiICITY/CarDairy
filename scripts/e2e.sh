@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # End-to-end run on the headless Pleos emulator: drives real vehicle signals through the
 # Virtual Console's HTTP API and saves a screenshot per scene. Usage: scripts/e2e.sh <outdir>
-ADB="${ADB:-/c/Users/sob50/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
-OUT="${1:-/c/Users/sob50/pleos-verify/e2e}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ADB="${ADB:-adb}"
+OUT="${1:-$ROOT/out/e2e}"
 B=http://127.0.0.1:8088
 PKG=app.woorichadiary
 export MSYS_NO_PATHCONV=1

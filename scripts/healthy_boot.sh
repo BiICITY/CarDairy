@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The Pleos emulator sometimes boots with eth0 unconfigured, which crash-loops its vehicle
 # services and blanks the screen. Reboots until eth0 has an address.
-ADB="${ADB:-/c/Users/sob50/AppData/Local/Android/Sdk/platform-tools/adb.exe}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ADB="${ADB:-adb}"
 pause() { ping -n $(( $1 + 1 )) 127.0.0.1 >/dev/null; }
 for attempt in 1 2 3 4; do
   for i in $(seq 1 40); do
