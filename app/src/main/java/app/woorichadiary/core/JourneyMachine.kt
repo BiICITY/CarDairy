@@ -184,7 +184,7 @@ class JourneyMachine(
         if (lowBatteryWarned && previous != null && percent >= previous + CHARGE_STEP) {
             lowBatteryWarned = false
             log = log.copy(charged = true)
-            return listOf(CarAction.Say("밥 먹었더니 힘이 나! 고마워!", CarAction.Kind.CARE), CarAction.ClearNotice)
+            return listOf(CarAction.Say("밥 먹었더니 힘이 나! 고마워!", CarAction.Kind.HUG), CarAction.ClearNotice)
         }
         if (previous != null && percent >= previous + CHARGE_STEP) log = log.copy(charged = true)
         return emptyList()

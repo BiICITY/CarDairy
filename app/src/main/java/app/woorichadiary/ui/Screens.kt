@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,10 +78,10 @@ fun DrivingScreen() {
 
 @Composable
 fun SetupScreen(onDone: (Family) -> Unit) {
-    var carName by remember { mutableStateOf("") }
-    var childName by remember { mutableStateOf("") }
-    var seat by remember { mutableStateOf(Seat.REAR_LEFT) }
-    var consent by remember { mutableStateOf(false) }
+    var carName by rememberSaveable { mutableStateOf("") }
+    var childName by rememberSaveable { mutableStateOf("") }
+    var seat by rememberSaveable { mutableStateOf(Seat.REAR_LEFT) }
+    var consent by rememberSaveable { mutableStateOf(false) }
     val ready = carName.isNotBlank() && childName.isNotBlank() && consent
 
     Row(
@@ -288,57 +291,132 @@ private fun Bubble(text: String) {
     }
 }
 
-/** An original friendly car face. Expression follows what the car is doing. */
+private val CarBodyDark = Color(0xFFDDA03A)
+private val Glass = Color(0xFFCDE8F2)
+
+/**
+ * An original friendly car seen from the front: headlights are its eyes, the grille its mouth.
+ * Expression follows what the car is doing. Drawn in a centered square so it never stretches.
+ */
 @Composable
 private fun CarFace(kind: CarAction.Kind, modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val top = h * 0.2f
-        drawRoundRect(
-            CarBody,
-            topLeft = Offset(w * 0.2f, top),
-            size = Size(w * 0.6f, h * 0.32f),
-            cornerRadius = CornerRadius(w * 0.1f),
-        )
-        drawRoundRect(
-            CarBody,
-            topLeft = Offset(w * 0.06f, h * 0.4f),
-            size = Size(w * 0.88f, h * 0.32f),
-            cornerRadius = CornerRadius(w * 0.08f),
-        )
-        listOf(0.26f, 0.74f).forEach { x ->
-            drawCircle(Ink, radius = w * 0.1f, center = Offset(w * x, h * 0.74f))
-            drawCircle(Soft, radius = w * 0.04f, center = Offset(w * x, h * 0.74f))
+        val s = minOf(size.width, size.height)
+        val ox = (size.width - s) / 2f
+        val oy = (size.height - s) / 2f
+        fun p(x: Float, y: Float) = Offset(ox + s * x, oy + s * y)
+        fun sz(x: Float, y: Float) = Size(s * x, s * y)
+        fun r(v: Float) = CornerRadius(s * v)
+        val line = Stroke(width = s * 0.018f, cap = StrokeCap.Round)
+
+        // Ground shadow and tires peeking out under the body.
+        drawOval(Ink, topLeft = p(0.12f, 0.86f), size = sz(0.76f, 0.06f), alpha = 0.12f)
+        listOf(0.15f, 0.71f).forEach { x ->
+            drawRoundRect(Ink, topLeft = p(x, 0.72f), size = sz(0.14f, 0.17f), cornerRadius = r(0.04f))
         }
-        val eyeY = h * 0.42f
-        listOf(0.38f, 0.62f).forEach { x ->
-            if (kind == CarAction.Kind.HUG) {
-                drawArc(
-                    Ink, 180f, 180f, false,
-                    topLeft = Offset(w * x - w * 0.04f, eyeY - w * 0.03f),
-                    size = Size(w * 0.08f, w * 0.06f),
-                    style = Stroke(width = w * 0.016f),
+
+        // Antenna with a little heart-coloured bobble.
+        drawLine(Ink, p(0.64f, 0.17f), p(0.68f, 0.06f), strokeWidth = s * 0.012f, cap = StrokeCap.Round)
+        drawCircle(Accent, radius = s * 0.028f, center = p(0.68f, 0.06f))
+
+        // Side mirrors.
+        listOf(0.03f, 0.87f).forEach { x ->
+            drawRoundRect(CarBodyDark, topLeft = p(x, 0.38f), size = sz(0.10f, 0.07f), cornerRadius = r(0.03f))
+        }
+
+        // Cabin (a soft trapezoid) and windshield.
+        val cabin = Path().apply {
+            moveTo(ox + s * 0.30f, oy + s * 0.15f)
+            lineTo(ox + s * 0.70f, oy + s * 0.15f)
+            quadraticBezierTo(ox + s * 0.78f, oy + s * 0.15f, ox + s * 0.80f, oy + s * 0.23f)
+            lineTo(ox + s * 0.86f, oy + s * 0.46f)
+            lineTo(ox + s * 0.14f, oy + s * 0.46f)
+            lineTo(ox + s * 0.20f, oy + s * 0.23f)
+            quadraticBezierTo(ox + s * 0.22f, oy + s * 0.15f, ox + s * 0.30f, oy + s * 0.15f)
+            close()
+        }
+        drawPath(cabin, CarBody)
+        val glass = Path().apply {
+            moveTo(ox + s * 0.31f, oy + s * 0.21f)
+            lineTo(ox + s * 0.69f, oy + s * 0.21f)
+            lineTo(ox + s * 0.76f, oy + s * 0.42f)
+            lineTo(ox + s * 0.24f, oy + s * 0.42f)
+            close()
+        }
+        drawPath(glass, Glass)
+        drawLine(Color.White, p(0.36f, 0.38f), p(0.44f, 0.24f), strokeWidth = s * 0.02f, cap = StrokeCap.Round, alpha = 0.8f)
+        drawLine(Color.White, p(0.43f, 0.38f), p(0.47f, 0.31f), strokeWidth = s * 0.012f, cap = StrokeCap.Round, alpha = 0.6f)
+
+        // Body and bumper with a small number plate.
+        drawRoundRect(CarBody, topLeft = p(0.07f, 0.40f), size = sz(0.86f, 0.40f), cornerRadius = r(0.11f))
+        drawRoundRect(CarBodyDark, topLeft = p(0.12f, 0.71f), size = sz(0.76f, 0.09f), cornerRadius = r(0.045f))
+        drawRoundRect(Color.White, topLeft = p(0.39f, 0.725f), size = sz(0.22f, 0.06f), cornerRadius = r(0.015f))
+        drawCircle(Accent, radius = s * 0.011f, center = p(0.49f, 0.748f))
+        drawCircle(Accent, radius = s * 0.011f, center = p(0.51f, 0.748f))
+        drawPath(
+            Path().apply {
+                moveTo(ox + s * 0.479f, oy + s * 0.752f)
+                lineTo(ox + s * 0.521f, oy + s * 0.752f)
+                lineTo(ox + s * 0.50f, oy + s * 0.772f)
+                close()
+            },
+            Accent,
+        )
+
+        // Turn signals.
+        listOf(0.11f, 0.84f).forEach { x ->
+            drawRoundRect(Color(0xFFFF9E57), topLeft = p(x, 0.49f), size = sz(0.05f, 0.03f), cornerRadius = r(0.015f))
+        }
+
+        // Cheeks: always a little rosy, brighter during a hug.
+        val blush = if (kind == CarAction.Kind.HUG) 0.65f else 0.3f
+        listOf(0.17f, 0.83f).forEach { x ->
+            drawOval(Accent, topLeft = p(x - 0.045f, 0.62f), size = sz(0.09f, 0.05f), alpha = blush)
+        }
+
+        // Headlight eyes.
+        listOf(0.30f, 0.70f).forEach { x ->
+            val c = p(x, 0.55f)
+            when (kind) {
+                CarAction.Kind.HUG -> drawArc(
+                    Ink, 200f, 140f, false,
+                    topLeft = p(x - 0.07f, 0.52f), size = sz(0.14f, 0.11f), style = line,
                 )
-            } else {
-                drawCircle(Color.White, radius = w * 0.05f, center = Offset(w * x, eyeY))
-                drawCircle(Ink, radius = w * 0.026f, center = Offset(w * x, eyeY))
+                else -> {
+                    drawCircle(Color.White, radius = s * 0.085f, center = c)
+                    drawCircle(Ink, radius = s * 0.085f, center = c, style = Stroke(width = s * 0.008f), alpha = 0.25f)
+                    drawCircle(Ink, radius = s * 0.045f, center = p(x, 0.565f))
+                    drawCircle(Color.White, radius = s * 0.016f, center = p(x - 0.016f, 0.548f))
+                    if (kind == CarAction.Kind.CARE) {
+                        // Heavy eyelids: tired and hungry.
+                        drawArc(CarBody, 180f, 180f, true, topLeft = p(x - 0.09f, 0.46f), size = sz(0.18f, 0.18f))
+                        drawLine(Ink, p(x - 0.085f, 0.55f), p(x + 0.085f, 0.55f), strokeWidth = s * 0.012f, cap = StrokeCap.Round)
+                    }
+                }
             }
         }
-        if (kind == CarAction.Kind.CARE) {
-            drawLine(Ink, Offset(w * 0.44f, h * 0.58f), Offset(w * 0.56f, h * 0.58f), strokeWidth = w * 0.016f)
-        } else {
-            drawArc(
-                Ink, 20f, 140f, false,
-                topLeft = Offset(w * 0.4f, h * 0.48f),
-                size = Size(w * 0.2f, h * 0.12f),
-                style = Stroke(width = w * 0.016f),
-            )
-        }
-        if (kind == CarAction.Kind.HUG) {
-            listOf(0.14f, 0.86f).forEach { x ->
-                drawCircle(Accent, radius = w * 0.03f, center = Offset(w * x, h * 0.54f), alpha = 0.6f)
+
+        // Grille mouth.
+        when (kind) {
+            CarAction.Kind.HUG -> {
+                drawArc(Ink, 0f, 180f, true, topLeft = p(0.42f, 0.58f), size = sz(0.16f, 0.12f))
+                drawArc(Accent, 0f, 180f, true, topLeft = p(0.46f, 0.63f), size = sz(0.08f, 0.06f))
             }
+            CarAction.Kind.CARE -> {
+                drawArc(Ink, 200f, 140f, false, topLeft = p(0.44f, 0.64f), size = sz(0.12f, 0.06f), style = line)
+                // A worried sweat drop.
+                drawCircle(Glass, radius = s * 0.022f, center = p(0.86f, 0.33f))
+                drawPath(
+                    Path().apply {
+                        moveTo(ox + s * 0.839f, oy + s * 0.325f)
+                        lineTo(ox + s * 0.86f, oy + s * 0.28f)
+                        lineTo(ox + s * 0.881f, oy + s * 0.325f)
+                        close()
+                    },
+                    Glass,
+                )
+            }
+            else -> drawArc(Ink, 20f, 140f, false, topLeft = p(0.40f, 0.56f), size = sz(0.20f, 0.11f), style = line)
         }
     }
 }

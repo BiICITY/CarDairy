@@ -21,7 +21,7 @@
 
 Pleos Connect Emulator v2.1.0(Android 14)에 APK를 설치한 뒤 앱 목록에서 **우리 차 일기**를 엽니다. 첫 화면에서 차 이름, 아이 이름과 좌석을 설정하고 보호자 동의를 선택합니다. 화면의 **데모** 메뉴는 차량 신호를 직접 보내기 어려울 때 탑승·주행·충전 장면을 재현하는 용도입니다. 실제 차량 신호는 Pleos Vehicle SDK를 통해 읽습니다.
 
-검증 환경: Pleos Connect Emulator v2.1.0, Android SDK 35, Java 21. `:app:testDebugUnitTest`와 `:app:assembleDebug`가 통과했고, release APK는 빌드와 서명 검증을 마쳤습니다. 신규 설치·전체 시나리오 동작은 에뮬레이터에서 추가 확인이 필요합니다. 에뮬레이터의 Virtual Console 신호와 실차 동작은 다를 수 있습니다.
+검증 환경: Pleos Connect Emulator v2.1.0, Android SDK 35, Java 21. `:app:testDebugUnitTest`와 `:app:assembleDebug`가 통과했고, release APK는 서명 검증 후 새로 설치해 첫 설정, 홈, 데모 패널의 탑승·벨트·비·주행·배터리·충전 흐름을 앱 오류 없이 확인했습니다. 에뮬레이터의 Virtual Console 신호와 실차 동작은 다를 수 있습니다.
 
 ## 구조
 
@@ -67,11 +67,12 @@ adb forward tcp:8088 tcp:8088
 
 ## 시연 영상
 
-`docs/우리차일기_시연영상.mp4`는 다음 순서로 만듭니다. 에뮬레이터 소리는 녹음되지 않아 Windows 한국어 음성으로 내레이션을 넣습니다.
+`docs/우리차일기_시연영상.mp4`는 다음 순서로 만듭니다. 에뮬레이터 소리는 녹음되지 않아 합성 음성으로 내레이션을 넣습니다. `edge-tts` 패키지가 있으면 Microsoft 한국어 신경망 음성(내레이션 문장만 전송)을, 없으면 Windows 기본 한국어 음성을 씁니다.
 
 1. `scripts/record_scenes.sh <폴더> part1`, 폰 페이지 승인, `part2`로 차 화면 녹화
 2. `scripts/phone_capture.py <폴더>/phone`으로 폰 화면 캡처
-3. `scripts/build_video.py <폴더> <출력 파일>`로 합치기
+3. 표지에 쓸 캐릭터 그림 `face_talk.png`, `face_hug.png`(앱 화면에서 잘라 낸 560×500)를 같은 폴더에 두기
+4. `scripts/build_video.py <폴더> <출력 파일>`로 합치기
 
 ## 확인된 제약
 
